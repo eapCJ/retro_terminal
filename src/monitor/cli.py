@@ -98,6 +98,7 @@ async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
     feed = MarketFeed()
     retry_delay = 1
     max_retry_delay = 30
+    ws = None
     
     def handle_signal(signum, frame):
         feed.stop()
@@ -109,9 +110,10 @@ async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
     TradePrinter.print_header()
     TradePrinter.print_subscription(pairs)
     
-    while feed.running:
-        try:
-            async with websockets.connect(WS_ENDPOINT) as ws:
+    try:
+        while feed.running:
+            try:
+                ws = await websockets.connect(WS_ENDPOINT)
                 TradePrinter.print_connection_status("Connected to Binance WebSocket")
                 await ws.send(json.dumps(subscribe_message))
                 TradePrinter.print_connection_status("Subscribed to streams", ", ".join(streams))
@@ -140,24 +142,39 @@ async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
                         TradePrinter.print_error(f"Error processing message: {e}")
                         continue
                         
-        except KeyboardInterrupt:
-            logger.info("Shutting down...")
-            break
-        except Exception as e:
-            TradePrinter.print_error(f"Connection error: {e}")
-            await asyncio.sleep(retry_delay)
-            retry_delay = min(retry_delay * 2, max_retry_delay)
-
+            except KeyboardInterrupt:
+                logger.info("Shutting down...")
+                break
+            except Exception as e:
+                TradePrinter.print_error(f"Connection error: {e}")
+                if feed.running:
+                    await asyncio.sleep(retry_delay)
+                    retry_delay = min(retry_delay * 2, max_retry_delay)
+    finally:
+        if ws and not ws.closed:
+            await ws.close()
+        
 def get_stream_name(pair: str, stream_type: str) -> str:
     """Generate Binance stream name for a trading pair"""
     return f"{pair.lower()}{stream_type}"
 
 def run_async_command(coro):
-    loop = asyncio.get_event_loop()
     try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         return loop.run_until_complete(coro)
+    except KeyboardInterrupt:
+        pass
     finally:
-        loop.close()
+        try:
+            tasks = asyncio.all_tasks(loop)
+            for task in tasks:
+                task.cancel()
+            loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.close()
+        except Exception:
+            pass
 
 @click.group()
 def main():
