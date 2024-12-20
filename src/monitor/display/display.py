@@ -34,9 +34,14 @@ class FixedHeightDisplay:
     @property
     def max_visible_rows(self):
         """Calculate maximum visible rows based on terminal height"""
-        # Account for header (2 lines), column headers (2 lines), 
-        # status lines (3 lines), and a buffer (1 line)
-        return max(1, self.terminal_height - 8)
+        # Account for:
+        # - header (2 lines)
+        # - column headers (2 lines)
+        # - status lines (2 lines)
+        # - legend (2 lines)
+        # - attribution (1 line)
+        # - bottom padding (2 lines)
+        return max(1, self.terminal_height - 11)
 
     def _get_terminal_size(self):
         """Get terminal size and calculate display dimensions"""
@@ -252,7 +257,10 @@ class FixedHeightDisplay:
         try:
             with self.lock:
                 self.logger.debug(f"Adding trade: {trade}")
-                self.trades.append(trade)
+                # Add the trade multiple times based on category
+                repeat_times = trade.category.repeat_times
+                for _ in range(repeat_times):
+                    self.trades.append(trade)
                 # Update last price for the symbol
                 self.last_price[trade.symbol] = trade.price
                 self.logger.debug(f"Current trades count: {len(self.trades)}")
@@ -297,6 +305,8 @@ class FixedHeightDisplay:
                 
                 # Update status lines
                 self._print_status_line()
+                
+                # Print footer only once
                 self._print_footer()
                 
                 stream.flush()
@@ -310,7 +320,7 @@ class FixedHeightDisplay:
         total_trades = len(self.trades)
         visible_trades = min(total_trades, self.max_visible_rows)
         status = f"Showing {visible_trades} of {total_trades} trades"
-        move_cursor(self.terminal_height - 3, 1)
+        move_cursor(self.terminal_height - 4, 1)  # Moved up to make room for attribution
         stream.write(f"{self.styles['dim']}{status}{self.styles['normal']}")
 
     def print_error(self, error: str):
@@ -318,8 +328,8 @@ class FixedHeightDisplay:
         try:
             with self.lock:
                 self.logger.error(error)
-                clear_line(self.terminal_height - 1)
-                move_cursor(self.terminal_height - 1, 1)
+                clear_line(self.terminal_height - 2)  # Moved up to make room for attribution
+                move_cursor(self.terminal_height - 2, 1)
                 stream.write(f"{self.styles['sell']}Error: {error}{self.styles['normal']}")
                 stream.flush()
         except Exception as e:
@@ -330,8 +340,8 @@ class FixedHeightDisplay:
         try:
             with self.lock:
                 self.logger.info(f"Status: {status} {details if details else ''}")
-                clear_line(self.terminal_height - 2)
-                move_cursor(self.terminal_height - 2, 1)
+                clear_line(self.terminal_height - 3)  # Moved up to make room for attribution
+                move_cursor(self.terminal_height - 3, 1)
                 if details:
                     stream.write(f"{self.styles['header']}{status}{self.styles['normal']}: {self.styles['dim']}{details}{self.styles['normal']}")
                 else:
@@ -348,15 +358,40 @@ class FixedHeightDisplay:
             stream.flush()
 
     def _print_footer(self):
-        """Print footer with attribution"""
-        footer_text = "Made with ❤️  by eapcj.ro"
-        footer_pos = max(1, (self.terminal_width - len(footer_text)) // 2)
+        """Print footer with legend and attribution"""
+        # Calculate rows from bottom (including padding)
+        bottom_row = self.terminal_height - 2  # Add 2 lines padding at bottom
         
-        # Print bottom border
-        move_cursor(self.terminal_height - 1, 1)
+        # Draw separator line
+        move_cursor(bottom_row - 3, 1)
         stream.write(f"{self.styles['border']}{'─' * (self.terminal_width - 2)}{self.styles['normal']}")
         
-        # Print attribution
-        move_cursor(self.terminal_height, footer_pos)
-        stream.write(f"{self.styles['dim']}{footer_text}{self.styles['normal']}")
+        # Print legend in Romanian
+        legend_row1 = "Simboluri: ★★10M+(x5) | ◈◈1M+(x4) | ◆◆500K+(x3) | ▲▲250K+(x2) | ■■100K+(x2) | ►►50K+ | ▪▪10K+ | ··<10K (USD)"
+        legend_row2 = "Sunete: Frecvență mai înaltă & durată mai lungă = tranzacție/lichidare mai mare"
+        
+        # Center the legend rows
+        legend1_pos = max(1, (self.terminal_width - len(legend_row1)) // 2)
+        legend2_pos = max(1, (self.terminal_width - len(legend_row2)) // 2)
+        
+        # Print legends
+        move_cursor(bottom_row - 2, legend1_pos)
+        stream.write(f"{self.styles['dim']}{legend_row1}{self.styles['normal']}")
+        
+        move_cursor(bottom_row - 1, legend2_pos)
+        stream.write(f"{self.styles['dim']}{legend_row2}{self.styles['normal']}")
+        
+        # Draw bottom border and attribution
+        move_cursor(bottom_row, 1)
+        stream.write(f"{self.styles['border']}{'─' * (self.terminal_width - 2)}{self.styles['normal']}")
+        
+        # Always show attribution with heart
+        attribution = "Made with ❤️  by eapcj.ro"
+        attr_pos = max(1, (self.terminal_width - len(attribution)) // 2)
+        move_cursor(bottom_row, attr_pos)
+        stream.write(f"{self.styles['dim']}{attribution}{self.styles['normal']}")
+        
+        # Clear bottom padding lines
+        clear_line(bottom_row + 1)
+        clear_line(bottom_row + 2)
   

@@ -5,6 +5,10 @@ from typing import List, Optional
 import logging
 import signal
 import argparse
+import sys
+import time
+import threading
+import os
 
 import click
 import websockets
@@ -162,12 +166,22 @@ class MarketFeed:
         except Exception as e:
             logger.error(f"Error printing liquidation: {e}")
 
+def get_platform_quit_key():
+    """Get platform-specific quit key combination"""
+    import platform
+    system = platform.system().lower()
+    if system == 'darwin':
+        return "Cmd+C"
+    elif system == 'windows':
+        return "Ctrl+C or Ctrl+Break"
+    else:  # Linux and others
+        return "Ctrl+C"
+
 async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
     stream_type = TRADE_STREAM if mode == "trades" else LIQUIDATION_STREAM
-    # Format streams properly for futures liquidations
     streams = [
         f"{pair.lower()}{stream_type}" if mode == "trades" 
-        else f"{pair.lower()}@forceOrder"  # Simplified liquidation stream name
+        else f"{pair.lower()}@forceOrder"
         for pair in pairs
     ]
     
@@ -184,15 +198,24 @@ async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
     max_retry_delay = 30
     ws = None
     
-    def handle_signal(signum, frame):
-        feed.stop()
-        raise KeyboardInterrupt()
+    # Get platform-specific quit key
+    quit_key = get_platform_quit_key()
     
+    def handle_signal(signum, frame):
+        """Handle interrupt signals aggressively"""
+        display.print_status("Shutting down...")
+        logger.info("Force shutdown initiated")
+        os._exit(0)  # Immediate exit without cleanup
+    
+    # Register signal handlers
     signal.signal(signal.SIGINT, handle_signal)
     signal.signal(signal.SIGTERM, handle_signal)
+    if hasattr(signal, 'SIGBREAK'):  # Windows Ctrl+Break
+        signal.signal(signal.SIGBREAK, handle_signal)
     
     display.update_display()  # Initial display
     display.print_status(f"Monitoring pairs: {', '.join(str(pair).upper() for pair in pairs)}")
+    display.print_status(f"Press {quit_key} to quit")
     
     try:
         while feed.running:
@@ -201,6 +224,7 @@ async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
                 display.print_status("Connected to Binance WebSocket")
                 await ws.send(json.dumps(subscribe_message))
                 display.print_status("Subscribed to streams", ", ".join(streams))
+                display.print_status(f"Press {quit_key} to quit")
                 
                 retry_delay = 1
                 
@@ -243,8 +267,9 @@ async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
                         continue
                         
             except KeyboardInterrupt:
-                logger.info("Shutting down...")
-                break
+                display.print_status("Shutting down...")
+                logger.info("Force shutdown initiated")
+                os._exit(0)  # Immediate exit
             except Exception as e:
                 display.print_error(f"Connection error: {e}")
                 logger.exception("Error in connection loop")
@@ -257,6 +282,10 @@ async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
                 await ws.close()
         except Exception as e:
             logger.error(f"Error closing websocket: {e}")
+        
+        display.print_status("Goodbye!")
+        await asyncio.sleep(1)
+        os._exit(0)  # Ensure exit
 
 def get_stream_name(pair: str, stream_type: str) -> str:
     """Generate Binance stream name for a trading pair"""
@@ -269,18 +298,14 @@ def run_async_command(coro):
         asyncio.set_event_loop(loop)
         return loop.run_until_complete(coro)
     except KeyboardInterrupt:
-        pass
+        display.print_status("Shutting down...")
+        logger.info("Force shutdown initiated")
+        os._exit(0)  # Immediate exit
+    except Exception:
+        os._exit(1)
     finally:
-        try:
-            if loop:
-                tasks = asyncio.all_tasks(loop)
-                for task in tasks:
-                    task.cancel()
-                loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-                loop.run_until_complete(loop.shutdown_asyncgens())
-                loop.close()
-        except Exception as e:
-            logger.error(f"Error cleaning up event loop: {e}")
+        if loop and not loop.is_closed():
+            loop.close()
 
 @click.group()
 def main():
@@ -297,7 +322,7 @@ def main():
 @click.option("--debug/--no-debug", default=False, help="Enable debug logging")
 @click.option("--log-file", default=None, help="Log file path (if not specified, logging to file is disabled)")
 def trades(pairs: List[str], min_size: float, min_category: str, debug: bool, log_file: Optional[str]):
-    """Monitor live trades"""
+    """Monitor live trades. Use Ctrl+C (Windows/Linux) or Cmd+C (Mac) to quit."""
     # Configure logging
     log_level = logging.DEBUG if debug else logging.WARNING
     log_handlers = [logging.NullHandler()]
@@ -330,7 +355,7 @@ def trades(pairs: List[str], min_size: float, min_category: str, debug: bool, lo
 @click.option("--debug/--no-debug", default=False, help="Enable debug logging")
 @click.option("--log-file", default=None, help="Log file path (if not specified, logging to file is disabled)")
 def liquidations(pairs: List[str], min_size: float, min_category: str, debug: bool, log_file: Optional[str]):
-    """Monitor liquidations"""
+    """Monitor liquidations. Use Ctrl+C (Windows/Linux) or Cmd+C (Mac) to quit."""
     # Configure logging
     log_level = logging.DEBUG if debug else logging.WARNING
     log_handlers = [logging.NullHandler()]
