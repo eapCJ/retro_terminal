@@ -1,3 +1,2 @@
 [console_scripts]
 crypto-monitor = monitor.cli:main
-

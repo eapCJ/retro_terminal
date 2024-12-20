@@ -1,9 +1,10 @@
-Metadata-Version: 1.2
+Metadata-Version: 2.1
 Name: crypto-monitor
 Version: 0.1.0
-Summary: UNKNOWN
-Home-page: UNKNOWN
-License: UNKNOWN
-Description: UNKNOWN
-Platform: UNKNOWN
 Requires-Python: >=3.6.0
+Requires-Dist: websockets>=9.1
+Requires-Dist: click>=8.0.4
+Requires-Dist: colorama>=0.4.5
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: simpleaudio>=1.0.4
+Requires-Dist: rich>=12.6.0

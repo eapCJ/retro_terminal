@@ -10,3 +10,4 @@ src/monitor/__init__.py
 src/monitor/cli.py
 src/monitor/config.py
 src/monitor/models.py
+src/monitor/printer.py
