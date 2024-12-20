@@ -80,7 +80,7 @@ class BaseTrade:
             Column.SIZE: self.quantity,
             Column.VALUE: self.usd_value,
             Column.CATEGORY: category.name,
-            Column.INFO: f"{category.symbol} {category.description}"
+            Column.INFO: f"{category.symbol} {category.name}"
         }
 
     def get_type(self) -> str:
