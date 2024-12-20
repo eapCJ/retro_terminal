@@ -59,4 +59,4 @@ The tool can be run in two modes:
 - Sound generation with custom frequency/duration
 - European number formatting for global usage
 
-This project creates a professional-grade market monitoring tool that helps traders and analysts track significant market movements and liquidations in real-time with visual and audio feedback.
+This project creates a professional-grade market monitoring tool that helps traders and analysts track significant market movements and liquidations in real-time with visual and audio feedback.# retro_terminal
