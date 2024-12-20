@@ -31,8 +31,8 @@ TABLE_CONFIG = {
     Column.PRICE: ColumnConfig("Price", 14, "right", "format_price"),
     Column.SIZE: ColumnConfig("Size", 14, "right", "format_quantity"),
     Column.VALUE: ColumnConfig("Value", 14, "right", "format_value"),
-    Column.CATEGORY: ColumnConfig("Category", 12, "left"),
-    Column.INFO: ColumnConfig("Info", 30, "left"),
+    Column.INFO: ColumnConfig("Type", 30, "left"),
+    Column.CATEGORY: ColumnConfig("Name", 12, "left"),
 }
 
 @dataclass
