@@ -28,6 +28,7 @@ class FixedHeightDisplay:
         self.blink_state = {}  # Track blink state for each trade
         self.last_blink_time = time.time()
         self.blink_interval = 0.5  # Blink every 0.5 seconds
+        self.last_price = {}  # Track last price for each symbol
         self.initialize_display()
 
     @property
@@ -41,20 +42,30 @@ class FixedHeightDisplay:
         """Get terminal size and calculate display dimensions"""
         try:
             size = os.get_terminal_size()
-            self.terminal_width = size.columns
-            self.terminal_height = size.lines
+            new_width = size.columns
+            new_height = size.lines
             
-            # Update table column widths based on terminal width
-            self._adjust_column_widths()
-            
-            # Update trade buffer size if needed
-            if hasattr(self, 'trades'):
-                new_deque = deque(self.trades, maxlen=self.max_visible_rows)
-                new_deque.extend(self.trades)
-                self.trades = new_deque
+            # Only update if size actually changed
+            if new_width != getattr(self, 'terminal_width', 0) or new_height != getattr(self, 'terminal_height', 0):
+                self.terminal_width = new_width
+                self.terminal_height = new_height
+                
+                # Update table column widths based on terminal width
+                self._adjust_column_widths()
+                
+                # Update trade buffer size if needed
+                if hasattr(self, 'trades'):
+                    new_deque = deque(self.trades, maxlen=self.max_visible_rows)
+                    new_deque.extend(self.trades)
+                    self.trades = new_deque
+                    
+                return True  # Size changed
+            return False  # Size unchanged
         except OSError:
+            # Fallback sizes
             self.terminal_width = 120
             self.terminal_height = 30
+            return False
 
     def _adjust_column_widths(self):
         """Adjust column widths based on terminal width"""
@@ -111,7 +122,7 @@ class FixedHeightDisplay:
     def _print_header(self):
         """Print the header with box drawing characters"""
         move_cursor(1, 1)
-        title = "Crypto Market Monitor"
+        title = "Coins Monitor"
         header = f"{self.styles['header']}╔{'═' * (self.terminal_width - 2)}╗{self.styles['normal']}"
         move_cursor(1, 1)
         stream.write(header)
@@ -120,11 +131,16 @@ class FixedHeightDisplay:
         title_pos = max(1, (self.terminal_width - len(title)) // 2)
         move_cursor(1, title_pos)
         stream.write(f"{self.styles['header']}{title}{self.styles['normal']}")
+
+        # Add last prices line
+        move_cursor(2, 1)
+        prices_text = self._format_last_prices()
+        stream.write(f"{self.styles['dim']}{prices_text}{self.styles['normal']}")
         
         # Print column headers
         move_cursor(3, 1)
         header_row = ""
-        remaining_width = self.terminal_width - 2  # Account for margins
+        remaining_width = self.terminal_width - 2
         
         for col in Column:
             config = TABLE_CONFIG[col]
@@ -143,7 +159,16 @@ class FixedHeightDisplay:
         
         # Print separator line
         move_cursor(4, 1)
-        stream.write(f"{self.styles['border']}{'���' * (self.terminal_width - 2)}{self.styles['normal']}")
+        stream.write(f"{self.styles['border']}{'─' * (self.terminal_width - 2)}{self.styles['normal']}")
+
+    def _format_last_prices(self) -> str:
+        """Format last prices for display"""
+        prices = []
+        for symbol, price in self.last_price.items():
+            prices.append(f"{symbol}: {format_price(price)}")
+        if not prices:
+            return "Waiting for price data..."
+        return " | ".join(prices)
 
     def _should_blink(self, trade: BaseTrade) -> Tuple[bool, str]:
         """Determine if a trade should blink and get its style"""
@@ -223,49 +248,48 @@ class FixedHeightDisplay:
             raise
 
     def add_trade(self, trade: BaseTrade):
-        """Add a trade to the display"""
+        """Add a trade to the display and update last price"""
         try:
             with self.lock:
                 self.logger.debug(f"Adding trade: {trade}")
                 self.trades.append(trade)
+                # Update last price for the symbol
+                self.last_price[trade.symbol] = trade.price
                 self.logger.debug(f"Current trades count: {len(self.trades)}")
         except Exception as e:
             self.logger.error(f"Error adding trade: {e}", exc_info=True)
 
     def update_display(self):
         """Update the entire display"""
-        if not self.trades:
-            self.logger.debug("No trades to display")
+        if not hasattr(self, 'trades'):
+            self.logger.debug("Display not initialized")
             return
 
         try:
             with self.lock:
                 # Check if terminal size has changed
-                current_size = os.get_terminal_size()
-                if (current_size.columns != self.terminal_width or 
-                    current_size.lines != self.terminal_height):
-                    self._get_terminal_size()
-                    self._clear_screen()
-                    self._print_header()
+                try:
+                    current_size = os.get_terminal_size()
+                    if (current_size.columns != self.terminal_width or 
+                        current_size.lines != self.terminal_height):
+                        self._get_terminal_size()
+                        self._clear_screen()
+                        self._print_header()
+                except OSError:
+                    pass  # Ignore terminal size errors
                 
                 hide_cursor()
                 
-                # Clean up old blink states
-                visible_trade_ids = {id(trade) for trade in self.trades}
-                self.blink_state = {tid: state for tid, state in self.blink_state.items() 
-                                  if tid in visible_trade_ids}
-                
-                # Print trades without clearing the whole screen
+                # Print trades
                 start_row = 5
                 visible_rows = min(len(self.trades), self.max_visible_rows)
                 
                 for i in range(visible_rows):
                     try:
-                        # Only clear the specific line we're about to update
                         clear_line(start_row + i)
                         self._print_trade_row(start_row + i, list(self.trades)[i])
                     except Exception as e:
-                        self.logger.error(f"Error printing trade row {i}: {e}", exc_info=True)
+                        self.logger.error(f"Error printing trade row {i}: {e}")
                 
                 # Clear any remaining lines
                 for i in range(visible_rows, self.max_visible_rows):
@@ -273,6 +297,7 @@ class FixedHeightDisplay:
                 
                 # Update status lines
                 self._print_status_line()
+                self._print_footer()
                 
                 stream.flush()
         except Exception as e:
@@ -321,4 +346,17 @@ class FixedHeightDisplay:
             self._clear_screen()
             self._print_header()
             stream.flush()
+
+    def _print_footer(self):
+        """Print footer with attribution"""
+        footer_text = "Made with ❤️  by eapcj.ro"
+        footer_pos = max(1, (self.terminal_width - len(footer_text)) // 2)
+        
+        # Print bottom border
+        move_cursor(self.terminal_height - 1, 1)
+        stream.write(f"{self.styles['border']}{'─' * (self.terminal_width - 2)}{self.styles['normal']}")
+        
+        # Print attribution
+        move_cursor(self.terminal_height, footer_pos)
+        stream.write(f"{self.styles['dim']}{footer_text}{self.styles['normal']}")
   
