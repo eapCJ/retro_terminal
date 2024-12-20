@@ -29,6 +29,8 @@ class FixedHeightDisplay:
         self.last_blink_time = time.time()
         self.blink_interval = 0.5  # Blink every 0.5 seconds
         self.last_price = {}  # Track last price for each symbol
+        self.min_category = None  # Store current category filter
+        self.min_size = 0  # Store current size filter
         self.initialize_display()
 
     @property
@@ -363,23 +365,30 @@ class FixedHeightDisplay:
         bottom_row = self.terminal_height - 2  # Add 2 lines padding at bottom
         
         # Draw separator line
-        move_cursor(bottom_row - 3, 1)
+        move_cursor(bottom_row - 4, 1)  # Added one more line for settings
         stream.write(f"{self.styles['border']}{'─' * (self.terminal_width - 2)}{self.styles['normal']}")
         
         # Print legend in Romanian
         legend_row1 = "Simboluri: ★★10M+(x5) | ◈◈1M+(x4) | ◆◆500K+(x3) | ▲▲250K+(x2) | ■■100K+(x2) | ►►50K+ | ▪▪10K+ | ··<10K (USD)"
         legend_row2 = "Sunete: Frecvență mai înaltă & durată mai lungă = tranzacție/lichidare mai mare"
         
-        # Center the legend rows
+        # Add settings info using the formatter
+        settings = self._format_settings_info()
+        
+        # Center all rows
         legend1_pos = max(1, (self.terminal_width - len(legend_row1)) // 2)
         legend2_pos = max(1, (self.terminal_width - len(legend_row2)) // 2)
+        settings_pos = max(1, (self.terminal_width - len(settings)) // 2)
         
-        # Print legends
-        move_cursor(bottom_row - 2, legend1_pos)
+        # Print legends and settings
+        move_cursor(bottom_row - 3, legend1_pos)
         stream.write(f"{self.styles['dim']}{legend_row1}{self.styles['normal']}")
         
-        move_cursor(bottom_row - 1, legend2_pos)
+        move_cursor(bottom_row - 2, legend2_pos)
         stream.write(f"{self.styles['dim']}{legend_row2}{self.styles['normal']}")
+        
+        move_cursor(bottom_row - 1, settings_pos)
+        stream.write(f"{self.styles['header']}{settings}{self.styles['normal']}")
         
         # Draw bottom border and attribution
         move_cursor(bottom_row, 1)
@@ -394,4 +403,20 @@ class FixedHeightDisplay:
         # Clear bottom padding lines
         clear_line(bottom_row + 1)
         clear_line(bottom_row + 2)
+
+    def update_settings(self, min_category: Optional[str] = None, min_size: float = 0):
+        """Update display settings"""
+        with self.lock:
+            self.min_category = min_category
+            self.min_size = min_size
+            self.logger.debug(f"Updated settings - Category: {min_category}, Size: {min_size}")
+
+    def _format_settings_info(self) -> str:
+        """Format current settings info for display"""
+        if self.min_category and self.min_category in MARKET_CATEGORIES:
+            category = MARKET_CATEGORIES[self.min_category]
+            return f"Filtru Activ: Categoria {self.min_category.upper()} (min. {category.min_size:,.0f} USD)"
+        elif self.min_size > 0:
+            return f"Filtru Activ: Valoare Minimă {self.min_size:,.0f} USD"
+        return "Filtru: Toate Tranzacțiile"
   

@@ -82,7 +82,7 @@ MARKET_CATEGORIES = {
         StyleConfig(Fore.WHITE, Back.BLACK, None),
         None,
         None,
-        repeat_times=10  # Print once for shrimp trades
+        repeat_times=1  # Print once for shrimp trades
     ),
     "plankton": MarketSizeCategory(
         "Plankton", 0,

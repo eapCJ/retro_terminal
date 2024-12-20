@@ -100,4 +100,4 @@ class Liquidation(BaseTrade):
     position_size: Optional[float] = None
 
     def get_type(self) -> str:
-        return "LIQUIDATION"
+        return "LIQUIDATED"

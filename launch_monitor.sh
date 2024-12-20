@@ -2,8 +2,8 @@
 
 # BTC Market Trades (>$1000)
 echo "Launching BTC Market Trades Monitor..."
-crypto-monitor trades --pairs btcusdt --min-size 1000
+lxterminal -e crypto-monitor trades --pairs btcusdt --min-size 25000 &
 
 # BTC Liquidations
 echo "Launching BTC Liquidations Monitor..."
-crypto-monitor liquidations --pairs btcusdt
+lxterminal -e crypto-monitor liquidations -p btcusdt -p avaxusdt -p solusdt -p ethusdt --min-size 1000 &

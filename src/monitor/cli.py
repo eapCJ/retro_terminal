@@ -339,9 +339,12 @@ def trades(pairs: List[str], min_size: float, min_category: str, debug: bool, lo
         handlers=log_handlers
     )
     
-    # If min-category is specified, override min-size
+    # Update display settings before starting
     if min_category:
         min_size = MARKET_CATEGORIES[min_category].min_size
+        display.update_settings(min_category=min_category, min_size=min_size)
+    else:
+        display.update_settings(min_size=min_size)
     
     run_async_command(monitor_market(pairs, "trades", min_size))
 
@@ -372,9 +375,12 @@ def liquidations(pairs: List[str], min_size: float, min_category: str, debug: bo
         handlers=log_handlers
     )
     
-    # If min-category is specified, override min-size
+    # Update display settings before starting
     if min_category:
         min_size = MARKET_CATEGORIES[min_category].min_size
+        display.update_settings(min_category=min_category, min_size=min_size)
+    else:
+        display.update_settings(min_size=min_size)
     
     run_async_command(monitor_market(pairs, "liquidations", min_size))
 
