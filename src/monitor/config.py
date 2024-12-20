@@ -96,9 +96,9 @@ DEFAULT_PAIRS = [
 ]
 
 # Binance WebSocket endpoints
-WS_ENDPOINT = "wss://stream.binance.com:9443/ws"
-WS_STREAM = "stream.binance.com:9443"
+WS_ENDPOINT = "wss://fstream.binance.com/ws"
+WS_STREAM = "fstream.binance.com/ws"
 
 # Stream types
 TRADE_STREAM = "@trade"
-LIQUIDATION_STREAM = "@forceOrder"  # For futures liquidations
+LIQUIDATION_STREAM = "@forceOrder"

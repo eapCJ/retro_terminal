@@ -67,37 +67,53 @@ class MarketFeed:
     def process_liquidation_message(self, msg: dict) -> Optional[Liquidation]:
         """Process a liquidation message and return a Liquidation object if valid"""
         try:
+            logger.debug(f"Received raw liquidation message: {json.dumps(msg, indent=2)}")
+            
             if not isinstance(msg, dict):
-                logger.error(f"Invalid message format: {msg}")
-                return None
-                
-            if 'e' not in msg or msg['e'] != 'forceOrder':
-                return None
-                
-            if not all(k in msg for k in ['T', 's', 'S', 'p', 'q']):
-                logger.error(f"Missing required fields in liquidation message: {msg}")
+                logger.error(f"Invalid message format (not a dict): {type(msg)}")
                 return None
             
-            timestamp = datetime.fromtimestamp(int(msg['T']) / 1000)
-            symbol = str(msg['s']).replace('USDT', '')
-            side = "BUY" if msg['S'] == 'BUY' else "SELL"
-            price = float(msg['p'])
-            size = float(msg['q'])
+            # Check event type
+            event_type = msg.get('e')
+            if event_type != 'forceOrder':
+                logger.debug(f"Skipping non-liquidation event: {event_type}")
+                return None
             
-            return Liquidation(
-                symbol=symbol,
-                price=price,
-                quantity=size,
-                timestamp=timestamp,
-                side=side,
-                bankruptcy_price=float(msg.get('ap', 0)),
-                position_size=float(msg.get('z', 0))
-            )
-        except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"Error processing liquidation data: {e}")
-            return None
+            # Extract order data
+            order_data = msg.get('o', {})
+            if not order_data:
+                logger.error("Missing order data in liquidation message")
+                return None
+            
+            try:
+                # Use order time instead of event time
+                timestamp = datetime.fromtimestamp(int(order_data['T']) / 1000)
+                symbol = str(order_data['s']).replace('USDT', '')
+                # Reverse the side since liquidation buy means someone's sell position was liquidated
+                side = "BUY" if order_data['S'] == "SELL" else "SELL"
+                price = float(order_data['p'])
+                size = float(order_data['q'])
+                
+                liquidation = Liquidation(
+                    symbol=symbol,
+                    price=price,
+                    quantity=size,
+                    timestamp=timestamp,
+                    side=side,
+                    bankruptcy_price=float(order_data.get('ap', 0)),
+                    position_size=float(order_data.get('z', 0))
+                )
+                
+                logger.debug(f"Successfully created liquidation object: {liquidation}")
+                return liquidation
+                
+            except (KeyError, ValueError) as e:
+                logger.error(f"Error extracting liquidation fields: {e}")
+                return None
+                
         except Exception as e:
-            logger.error(f"Unexpected error processing liquidation: {e}")
+            logger.error(f"Error processing liquidation: {e}")
+            logger.exception("Full traceback:")
             return None
     
     def print_trade(self, trade: Trade) -> None:
@@ -148,13 +164,20 @@ class MarketFeed:
 
 async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
     stream_type = TRADE_STREAM if mode == "trades" else LIQUIDATION_STREAM
-    streams = [get_stream_name(pair, stream_type) for pair in pairs]
+    # Format streams properly for futures liquidations
+    streams = [
+        f"{pair.lower()}{stream_type}" if mode == "trades" 
+        else f"{pair.lower()}@forceOrder"  # Simplified liquidation stream name
+        for pair in pairs
+    ]
     
     subscribe_message = {
         "method": "SUBSCRIBE",
         "params": streams,
         "id": 1
     }
+    
+    logger.debug(f"Subscribe message: {json.dumps(subscribe_message, indent=2)}")
     
     feed = MarketFeed(mode)
     retry_delay = 1
@@ -186,6 +209,8 @@ async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
                         msg = await ws.recv()
                         data = json.loads(msg)
                         logger.debug(f"Received message: {data}")
+                        display.print_status("Received message", f"Data: {data}")
+
                         
                         if 'result' in data:  # Subscription confirmation
                             continue
