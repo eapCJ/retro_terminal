@@ -10,31 +10,40 @@ A real-time cryptocurrency market monitoring tool that tracks:
 ### Market Size Categories
 The system categorizes trades/liquidations into distinct tiers with visual and audio indicators:
 
-| Category | Size | Symbol |
-|----------|------|--------|
-| Whale | ≥$1M | ◆ |
-| Shark | ≥$500K | ▲ |
-| Dolphin | ≥$250K | ♦ |
-| Swordfish | ≥$100K | ⚔ |
-| Plankton | < $100K | - |
+| Category | Min Size | Symbol | Repeat | Sound |
+|----------|----------|--------|--------|-------|
+| Aquaman | $10M+ | ★★ | x5 | High pitch, long duration |
+| Whale | $1M+ | ◈◈ | x4 | Higher pitch, longer duration |
+| Orca | $500K+ | ◆◆ | x3 | High pitch, medium duration |
+| Shark | $250K+ | ▲▲ | x2 | Medium pitch, medium duration |
+| Dolphin | $100K+ | ■■ | x2 | Lower pitch, short duration |
+| Fish | $50K+ | ►► | x1 | Base pitch, short duration |
+| Shrimp | $10K+ | ▪▪ | x1 | No sound |
+| Plankton | < $10K | ·· | x1 | No sound |
 
 ### Real-time Monitoring
-- Connects to Binance WebSocket API
-- Monitors multiple trading pairs simultaneously
-- Supports preset configurations for different coin groups (major, DeFi, gaming, layer1)
-- Provides visual feedback with color-coded output
+- Monitors multiple trading pairs simultaneously (default: BTC, ETH, BNB, SOL, DOGE, XRP)
+- Color-coded display with size-based categorization
+- Automatic terminal size adjustment
+- Real-time price tracking for monitored pairs
 
 ### Smart Notifications
-- Configurable sound alerts for significant trades
-- Different sound patterns for different market size categories
-- Statistical analysis to identify unusual trade sizes
-- Visual highlighting for exceptional events
+- Size-based audio alerts with configurable:
+  * Frequency (pitch)
+  * Duration
+  * Volume
+- Visual blinking for large trades
+- Color-coded trade types (green for buys, red for sells)
+- Higher priority sounds for liquidations
 
 ### Flexible Configuration
-- Customizable minimum trade size filters
-- Preset market size filters (all, small, medium, large, whale)
-- Configurable coin pairs and groupings
-- Sound threshold customization
+- Command line filters:
+  * By minimum trade size (--min-size)
+  * By category (--min-category)
+  * By trading pairs (--pairs)
+- Debug logging options (--debug --log-file)
+- Configurable display settings
+- European number formatting
 
 ## Usage
 The tool can be run in two modes:
@@ -42,11 +51,12 @@ The tool can be run in two modes:
 2. Command-line mode with specific parameters (e.g., minimum size: $100,000)
 
 ## Technical Implementation
-- Uses WebSocket for real-time data streaming
-- Implements object-oriented design with base classes and inheritance
-- Includes error handling and logging
-- Provides statistical analysis of trade volumes
-- Uses colorama for terminal color output
-- Implements sound generation for alerts
+- Asynchronous WebSocket handling with websockets library
+- Thread-safe display management
+- Robust error handling and reconnection logic
+- Efficient trade categorization system
+- Terminal manipulation with ANSI escape codes
+- Sound generation with custom frequency/duration
+- European number formatting for global usage
 
 This project creates a professional-grade market monitoring tool that helps traders and analysts track significant market movements and liquidations in real-time with visual and audio feedback.

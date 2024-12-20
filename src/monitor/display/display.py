@@ -157,12 +157,21 @@ class FixedHeightDisplay:
                 "format_func": None
             }
             cell = self._format_cell(config.name, header_config)
-            if len(header_row) + len(cell) + 1 <= remaining_width:
-                header_row += cell + " "
+            # Match the same spacing as trade rows
+            if col in [Column.VALUE, Column.INFO, Column.CATEGORY]:
+                if len(header_row) + len(cell) + 2 <= remaining_width:
+                    header_row += cell + "  "  # Two spaces
+            elif col == Column.TYPE:
+                if len(header_row) + len(cell) + 3 <= remaining_width:
+                    header_row += cell + "   "  # Three spaces after TYPE
+            elif col == Column.SIZE:
+                if len(header_row) + len(cell) <= remaining_width:
+                    header_row += cell  # No extra space after SIZE
             else:
-                break
-        
-        stream.write(f"{self.styles['header']}{header_row.rstrip()}{self.styles['normal']}")
+                if len(header_row) + len(cell) + 1 <= remaining_width:
+                    header_row += cell + " "  # One space for other columns
+
+        stream.write(f"{self.styles['header']}{header_row}{self.styles['normal']}")
         
         # Print separator line
         move_cursor(4, 1)
@@ -243,7 +252,16 @@ class FixedHeightDisplay:
                     "align": config.align,
                     "format_func": config.format_func
                 }
-                row_text += self._format_cell(value, cell_config) + " "
+                cell = self._format_cell(value, cell_config)
+                # Adjust spacing for different columns
+                if col in [Column.VALUE, Column.INFO, Column.CATEGORY]:
+                    row_text += cell + "  "  # Two spaces
+                elif col == Column.TYPE:
+                    row_text += cell + "   "  # Three spaces after TYPE
+                elif col == Column.SIZE:
+                    row_text += cell  # No extra space after SIZE
+                else:
+                    row_text += cell + " "  # One space for other columns
             
             # Ensure we're writing to the correct position
             clear_line(row)
@@ -362,14 +380,14 @@ class FixedHeightDisplay:
     def _print_footer(self):
         """Print footer with legend and attribution"""
         # Calculate rows from bottom (including padding)
-        bottom_row = self.terminal_height - 2  # Add 2 lines padding at bottom
+        bottom_row = self.terminal_height - 3  # Changed from -2 to -3 for extra padding
         
         # Draw separator line
-        move_cursor(bottom_row - 4, 1)  # Added one more line for settings
+        move_cursor(bottom_row - 4, 1)
         stream.write(f"{self.styles['border']}{'─' * (self.terminal_width - 2)}{self.styles['normal']}")
         
-        # Print legend in Romanian
-        legend_row1 = "Simboluri: ★★10M+(x5) | ◈◈1M+(x4) | ◆◆500K+(x3) | ▲▲250K+(x2) | ■■100K+(x2) | ►►50K+ | ▪▪10K+ | ··<10K (USD)"
+        # Print legend in Romanian - Updated USD symbol
+        legend_row1 = "Simboluri: ★★10M+ USD(x5) | ◈◈1M+ USD(x4) | ◆◆500K+ USD(x3) | ▲▲250K+ USD(x2) | ■■100K+ USD(x2) | ►►50K+ USD | ▪▪10K+ USD | ··<10K USD"
         legend_row2 = "Sunete: Frecvență mai înaltă & durată mai lungă = tranzacție/lichidare mai mare"
         
         # Add settings info using the formatter
@@ -400,9 +418,10 @@ class FixedHeightDisplay:
         move_cursor(bottom_row, attr_pos)
         stream.write(f"{self.styles['dim']}{attribution}{self.styles['normal']}")
         
-        # Clear bottom padding lines
+        # Clear bottom padding lines (now 3 lines instead of 2)
         clear_line(bottom_row + 1)
         clear_line(bottom_row + 2)
+        clear_line(bottom_row + 3)
 
     def update_settings(self, min_category: Optional[str] = None, min_size: float = 0):
         """Update display settings"""
