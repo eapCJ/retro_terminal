@@ -12,6 +12,7 @@ setup(
         "python-dateutil>=2.8.2",
         "simpleaudio>=1.0.4",
         "rich>=12.6.0",
+        "numpy>=1.24.0",
     ],
     entry_points={
         "console_scripts": [

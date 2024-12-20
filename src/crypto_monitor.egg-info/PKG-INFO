@@ -8,3 +8,4 @@ Requires-Dist: colorama>=0.4.5
 Requires-Dist: python-dateutil>=2.8.2
 Requires-Dist: simpleaudio>=1.0.4
 Requires-Dist: rich>=12.6.0
+Requires-Dist: numpy>=1.24.0

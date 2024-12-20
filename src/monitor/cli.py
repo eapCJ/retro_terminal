@@ -15,6 +15,7 @@ from .config import (
 )
 from .models import Trade, Liquidation
 from .display import display
+from .sound import sound_player
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -106,6 +107,18 @@ class MarketFeed:
                 return
             logger.debug(f"Printing trade: {trade}")
             display.add_trade(trade)
+            
+            # Play sound only if the category has sound configuration
+            category = trade.category
+            if hasattr(category, 'sound') and category.sound is not None:
+                # Set priority based on category (e.g., whale = 5, fish = 1)
+                priority = max(1, int(trade.usd_value / 100_000))  # 1 priority point per $100k
+                sound_player.play_notification(
+                    frequency=category.sound.frequency,
+                    duration=category.sound.duration,
+                    volume=category.sound.volume,
+                    priority=priority
+                )
         except Exception as e:
             logger.error(f"Error printing trade: {e}")
 
@@ -117,6 +130,18 @@ class MarketFeed:
                 return
             logger.debug(f"Printing liquidation: {liquidation}")
             display.add_trade(liquidation)
+            
+            # Play sound only if the category has sound configuration
+            category = liquidation.category
+            if hasattr(category, 'sound') and category.sound is not None:
+                # Liquidations get higher priority
+                priority = max(2, int(liquidation.usd_value / 50_000))  # 1 priority point per $50k
+                sound_player.play_notification(
+                    frequency=category.sound.frequency,
+                    duration=category.sound.duration,
+                    volume=category.sound.volume,
+                    priority=priority
+                )
         except Exception as e:
             logger.error(f"Error printing liquidation: {e}")
 
