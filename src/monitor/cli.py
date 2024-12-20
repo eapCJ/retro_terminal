@@ -299,9 +299,13 @@ def trades(pairs: List[str], min_size: float, min_category: str, debug: bool, lo
 @main.command()
 @click.option("--pairs", "-p", multiple=True, default=DEFAULT_PAIRS,
               help="Trading pairs to monitor (e.g., btcusdt)")
+@click.option("--min-size", "-m", type=float, default=DEFAULT_MIN_TRADE_SIZE,
+              help="Minimum liquidation value in USD")
+@click.option("--min-category", type=click.Choice(list(MARKET_CATEGORIES.keys())),
+              help="Minimum category to monitor (e.g., whale, shark, fish)")
 @click.option("--debug/--no-debug", default=False, help="Enable debug logging")
 @click.option("--log-file", default=None, help="Log file path (if not specified, logging to file is disabled)")
-def liquidations(pairs: List[str], debug: bool, log_file: Optional[str]):
+def liquidations(pairs: List[str], min_size: float, min_category: str, debug: bool, log_file: Optional[str]):
     """Monitor liquidations"""
     # Configure logging
     log_level = logging.DEBUG if debug else logging.WARNING
@@ -319,7 +323,11 @@ def liquidations(pairs: List[str], debug: bool, log_file: Optional[str]):
         handlers=log_handlers
     )
     
-    run_async_command(monitor_market(pairs, "liquidations"))
+    # If min-category is specified, override min-size
+    if min_category:
+        min_size = MARKET_CATEGORIES[min_category].min_size
+    
+    run_async_command(monitor_market(pairs, "liquidations", min_size))
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
