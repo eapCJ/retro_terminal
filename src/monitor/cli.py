@@ -209,7 +209,6 @@ async def monitor_market(pairs: List[str], mode: str, min_value: float = 0):
                         msg = await ws.recv()
                         data = json.loads(msg)
                         logger.debug(f"Received message: {data}")
-                        display.print_status("Received message", f"Data: {data}")
 
                         
                         if 'result' in data:  # Subscription confirmation
