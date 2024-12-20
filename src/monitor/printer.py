@@ -8,7 +8,10 @@ import logging
 from threading import Lock
 
 from colorama import init, Fore, Back, Style, AnsiToWin32
-from .models import Trade, Liquidation, BaseTrade, Column, TABLE_CONFIG, DisplayConfig
+from .models import (
+    Trade, Liquidation, BaseTrade, Column, TABLE_CONFIG, 
+    DisplayConfig, ColumnConfig
+)
 
 # Initialize colorama
 init(wrap=False)
@@ -20,25 +23,69 @@ logger = logging.getLogger(__name__)
 class FixedHeightDisplay:
     def __init__(self, config: DisplayConfig):
         self.config = config
-        self.trades: Deque[BaseTrade] = deque(maxlen=config.max_rows)
         self.lock = Lock()
         self.last_update = 0
-        self._get_terminal_size()
+        self._get_terminal_size()  # Initial size
+        self.trades = deque(maxlen=self.max_visible_rows)  # Dynamic maxlen based on terminal size
         self._setup_styles()
-        # Initialize logging
-        self.logger = logger  # Use the module-level logger
-        # Ensure the screen is cleared on startup
+        self.logger = logger
         self._clear_screen()
         self._print_header()
+
+    @property
+    def max_visible_rows(self):
+        """Calculate maximum visible rows based on terminal height"""
+        # Account for header (2 lines), column headers (2 lines), 
+        # status lines (3 lines), and a buffer (1 line)
+        return max(1, self.terminal_height - 8)
 
     def _get_terminal_size(self):
         """Get terminal size and calculate display dimensions"""
         try:
-            self.terminal_width = os.get_terminal_size().columns
-            self.terminal_height = os.get_terminal_size().lines
+            size = os.get_terminal_size()
+            self.terminal_width = size.columns
+            self.terminal_height = size.lines
+            
+            # Update table column widths based on terminal width
+            self._adjust_column_widths()
+            
+            # Update trade buffer size if needed
+            if hasattr(self, 'trades'):
+                new_deque = deque(self.trades, maxlen=self.max_visible_rows)
+                new_deque.extend(self.trades)
+                self.trades = new_deque
         except OSError:
             self.terminal_width = 120
             self.terminal_height = 30
+
+    def _adjust_column_widths(self):
+        """Adjust column widths based on terminal width"""
+        # Calculate total current width
+        total_width = sum(config.width for config in TABLE_CONFIG.values()) + len(TABLE_CONFIG) - 1  # -1 for spaces
+        
+        # If terminal is too narrow, reduce some column widths
+        if total_width > self.terminal_width:
+            # Columns that can be shortened
+            flexible_columns = [Column.INFO, Column.CATEGORY, Column.TYPE]
+            
+            # Calculate how much we need to reduce
+            to_reduce = total_width - self.terminal_width + 5  # +5 for safety margin
+            
+            for col in flexible_columns:
+                if to_reduce <= 0:
+                    break
+                current_width = TABLE_CONFIG[col].width
+                # Don't reduce below minimum widths
+                min_width = 8 if col == Column.INFO else 6
+                reduction = min(to_reduce, current_width - min_width)
+                if reduction > 0:
+                    TABLE_CONFIG[col] = ColumnConfig(
+                        TABLE_CONFIG[col].name,
+                        current_width - reduction,
+                        TABLE_CONFIG[col].align,
+                        TABLE_CONFIG[col].format_func
+                    )
+                    to_reduce -= reduction
 
     def _setup_styles(self):
         """Setup color styles"""
@@ -128,22 +175,35 @@ class FixedHeightDisplay:
     def _print_header(self):
         """Print the header with box drawing characters"""
         self._move_cursor(1, 1)
-        header = f"{self.styles['header']}╔══ Crypto Market Monitor ══╗{self.styles['normal']}"
-        self._move_cursor(1, (self.terminal_width - len("Crypto Market Monitor") - 6) // 2)
+        title = "Crypto Market Monitor"
+        header = f"{self.styles['header']}╔{'═' * (self.terminal_width - 2)}╗{self.styles['normal']}"
+        self._move_cursor(1, 1)
         stream.write(header)
+        
+        # Center the title
+        title_pos = max(1, (self.terminal_width - len(title)) // 2)
+        self._move_cursor(1, title_pos)
+        stream.write(f"{self.styles['header']}{title}{self.styles['normal']}")
         
         # Print column headers
         self._move_cursor(3, 1)
         header_row = ""
+        remaining_width = self.terminal_width - 2  # Account for margins
+        
         for col in Column:
             config = TABLE_CONFIG[col]
             header_config = {
                 "width": config.width,
                 "align": config.align,
-                "format_func": None  # Headers don't need formatting
+                "format_func": None
             }
-            header_row += self._format_cell(config.name, header_config) + " "
-        stream.write(f"{self.styles['header']}{header_row}{self.styles['normal']}")
+            cell = self._format_cell(config.name, header_config)
+            if len(header_row) + len(cell) + 1 <= remaining_width:
+                header_row += cell + " "
+            else:
+                break
+        
+        stream.write(f"{self.styles['header']}{header_row.rstrip()}{self.styles['normal']}")
         
         # Print separator line
         self._move_cursor(4, 1)
@@ -194,33 +254,34 @@ class FixedHeightDisplay:
 
         try:
             with self.lock:
+                # Check if terminal size has changed
+                current_size = os.get_terminal_size()
+                if (current_size.columns != self.terminal_width or 
+                    current_size.lines != self.terminal_height):
+                    self._get_terminal_size()
+                
                 self._hide_cursor()
-                self._get_terminal_size()
                 self._clear_screen()
                 self._print_header()
                 
                 # Print trades
                 start_row = 5
-                self.logger.debug(f"Updating display with {len(self.trades)} trades")
+                visible_rows = min(len(self.trades), self.max_visible_rows)
                 
-                for i, trade in enumerate(list(self.trades)):
-                    if i >= self.config.max_rows:
-                        break
+                for i in range(visible_rows):
                     try:
-                        # Clear the line before printing
                         self._clear_line(start_row + i)
-                        self._print_trade_row(start_row + i, trade)
+                        self._print_trade_row(start_row + i, list(self.trades)[i])
                     except Exception as e:
                         self.logger.error(f"Error printing trade row {i}: {e}", exc_info=True)
                 
                 # Clear any remaining lines
-                for i in range(len(self.trades), self.config.max_rows):
+                for i in range(visible_rows, self.max_visible_rows):
                     self._clear_line(start_row + i)
                 
                 # Always show status at the bottom
                 self._print_status_line()
                 
-                # Ensure everything is flushed to the terminal
                 stream.flush()
         except Exception as e:
             self.logger.error(f"Error updating display: {e}", exc_info=True)
@@ -229,7 +290,9 @@ class FixedHeightDisplay:
 
     def _print_status_line(self):
         """Print a status line showing trade count"""
-        status = f"Monitoring {len(self.trades)} trades"
+        total_trades = len(self.trades)
+        visible_trades = min(total_trades, self.max_visible_rows)
+        status = f"Showing {visible_trades} of {total_trades} trades"
         self._move_cursor(self.terminal_height - 3, 1)
         stream.write(f"{self.styles['dim']}{status}{self.styles['normal']}")
 
@@ -260,8 +323,5 @@ class FixedHeightDisplay:
         except Exception as e:
             self.logger.error(f"Error printing status: {e}", exc_info=True)
 
-# Create a global display instance with faster updates
-display = FixedHeightDisplay(DisplayConfig(
-    max_rows=20,
-    update_interval=0.1  # 100ms update interval
-))
+# Create a global display instance
+display = FixedHeightDisplay(DisplayConfig())
