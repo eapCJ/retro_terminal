@@ -1,12 +1,12 @@
-from colorama import Fore, Style
+from colorama import Fore, Back, Style
 
 def setup_styles():
     """Setup color styles"""
     return {
-        "header": Fore.CYAN + Style.BRIGHT,
+        "header": Back.BLUE + Fore.WHITE + Style.BRIGHT,
         "border": Fore.WHITE,
-        "buy": Fore.GREEN + Style.BRIGHT,
-        "sell": Fore.RED + Style.BRIGHT,
+        "buy": Back.GREEN + Fore.BLACK + Style.BRIGHT,
+        "sell": Back.RED + Fore.WHITE + Style.BRIGHT,
         "normal": Style.RESET_ALL,
         "dim": Style.DIM,
     } 

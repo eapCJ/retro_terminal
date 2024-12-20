@@ -145,7 +145,15 @@ class FixedHeightDisplay:
         try:
             move_cursor(row, 1)
             trade_data = trade.to_row()
-            row_style = self.styles["buy"] if trade_data[Column.SIDE] == "BUY" else self.styles["sell"]
+            category = trade.category
+            style = category.style
+            
+            # Build style string
+            style_str = style.text_color
+            if style.background_color:
+                style_str += style.background_color
+            if style.style:
+                style_str += style.style
             
             row_text = ""
             for col in Column:
@@ -161,7 +169,7 @@ class FixedHeightDisplay:
             # Ensure we're writing to the correct position
             clear_line(row)
             move_cursor(row, 1)
-            stream.write(f"{row_style}{row_text}{self.styles['normal']}")
+            stream.write(f"{style_str}{row_text}{self.styles['normal']}")
             stream.flush()
         except Exception as e:
             self.logger.error(f"Error in _print_trade_row: {e}")
