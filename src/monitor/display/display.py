@@ -19,12 +19,11 @@ class FixedHeightDisplay:
         self.config = config
         self.lock = Lock()
         self.last_update = 0
-        self._get_terminal_size()  # Initial size
-        self.trades = deque(maxlen=self.max_visible_rows)  # Dynamic maxlen based on terminal size
+        self._get_terminal_size()
+        self.trades = deque(maxlen=self.max_visible_rows)
         self.styles = setup_styles()
         self.logger = logger
-        self._clear_screen()
-        self._print_header()
+        self.initialize_display()
 
     @property
     def max_visible_rows(self):
@@ -191,17 +190,18 @@ class FixedHeightDisplay:
                 if (current_size.columns != self.terminal_width or 
                     current_size.lines != self.terminal_height):
                     self._get_terminal_size()
+                    self._clear_screen()
+                    self._print_header()
                 
                 hide_cursor()
-                self._clear_screen()
-                self._print_header()
                 
-                # Print trades
+                # Print trades without clearing the whole screen
                 start_row = 5
                 visible_rows = min(len(self.trades), self.max_visible_rows)
                 
                 for i in range(visible_rows):
                     try:
+                        # Only clear the specific line we're about to update
                         clear_line(start_row + i)
                         self._print_trade_row(start_row + i, list(self.trades)[i])
                     except Exception as e:
@@ -211,7 +211,7 @@ class FixedHeightDisplay:
                 for i in range(visible_rows, self.max_visible_rows):
                     clear_line(start_row + i)
                 
-                # Always show status at the bottom
+                # Update status lines
                 self._print_status_line()
                 
                 stream.flush()
@@ -253,4 +253,12 @@ class FixedHeightDisplay:
                     stream.write(f"{self.styles['header']}{status}{self.styles['normal']}")
                 stream.flush()
         except Exception as e:
-            self.logger.error(f"Error printing status: {e}", exc_info=True) 
+            self.logger.error(f"Error printing status: {e}", exc_info=True)
+
+    def initialize_display(self):
+        """Initialize the display for first time setup"""
+        with self.lock:
+            self._clear_screen()
+            self._print_header()
+            stream.flush()
+  
