@@ -240,12 +240,18 @@ class FixedHeightDisplay:
             stream.write(f"{style_str}{row_text}{Style.RESET_ALL}")
             stream.flush()
             
-            # Play notification sound only if the category has sound configuration
-            if category.sound is not None:
+            # Play notification sound based on trade type
+            sound_config = None
+            if isinstance(trade, Liquidation):
+                sound_config = category.liquidation_sound
+            else:
+                sound_config = category.trade_sound
+                
+            if sound_config is not None:
                 sound_player.play_notification(
-                    frequency=category.sound.frequency,
-                    duration=category.sound.duration,
-                    volume=category.sound.volume
+                    frequency=sound_config.frequency,
+                    duration=sound_config.duration,
+                    volume=sound_config.volume
                 )
         except Exception as e:
             self.logger.error(f"Error in _print_trade_row: {e}")

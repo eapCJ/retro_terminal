@@ -108,15 +108,15 @@ class MarketFeed:
             logger.debug(f"Printing trade: {trade}")
             display.add_trade(trade)
             
-            # Play sound only if the category has sound configuration
+            # Play sound only if the category has trade sound configuration
             category = trade.category
-            if hasattr(category, 'sound') and category.sound is not None:
+            if hasattr(category, 'trade_sound') and category.trade_sound is not None:
                 # Set priority based on category (e.g., whale = 5, fish = 1)
                 priority = max(1, int(trade.usd_value / 100_000))  # 1 priority point per $100k
                 sound_player.play_notification(
-                    frequency=category.sound.frequency,
-                    duration=category.sound.duration,
-                    volume=category.sound.volume,
+                    frequency=category.trade_sound.frequency,
+                    duration=category.trade_sound.duration,
+                    volume=category.trade_sound.volume,
                     priority=priority
                 )
         except Exception as e:
@@ -131,15 +131,15 @@ class MarketFeed:
             logger.debug(f"Printing liquidation: {liquidation}")
             display.add_trade(liquidation)
             
-            # Play sound only if the category has sound configuration
+            # Play sound only if the category has liquidation sound configuration
             category = liquidation.category
-            if hasattr(category, 'sound') and category.sound is not None:
+            if hasattr(category, 'liquidation_sound') and category.liquidation_sound is not None:
                 # Liquidations get higher priority
                 priority = max(2, int(liquidation.usd_value / 50_000))  # 1 priority point per $50k
                 sound_player.play_notification(
-                    frequency=category.sound.frequency,
-                    duration=category.sound.duration,
-                    volume=category.sound.volume,
+                    frequency=category.liquidation_sound.frequency,
+                    duration=category.liquidation_sound.duration,
+                    volume=category.liquidation_sound.volume,
                     priority=priority
                 )
         except Exception as e:
