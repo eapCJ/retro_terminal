@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 import logging
 import signal
+import argparse
 
 import click
 import websockets
@@ -11,7 +12,7 @@ from websockets.exceptions import ConnectionClosed
 
 from .config import (
     DEFAULT_PAIRS, WS_ENDPOINT, TRADE_STREAM, 
-    LIQUIDATION_STREAM, WS_STREAM
+    LIQUIDATION_STREAM, WS_STREAM, DEFAULT_MIN_TRADE_SIZE, MARKET_CATEGORIES
 )
 from .models import Trade, Liquidation
 from .display import display
@@ -265,10 +266,13 @@ def main():
 @main.command()
 @click.option("--pairs", "-p", multiple=True, default=DEFAULT_PAIRS,
               help="Trading pairs to monitor (e.g., btcusdt)")
-@click.option("--min-value", "-m", default=0, help="Minimum trade value in USD")
+@click.option("--min-size", "-m", type=float, default=DEFAULT_MIN_TRADE_SIZE,
+              help="Minimum trade value in USD")
+@click.option("--min-category", type=click.Choice(list(MARKET_CATEGORIES.keys())),
+              help="Minimum category to monitor (e.g., whale, shark, fish)")
 @click.option("--debug/--no-debug", default=False, help="Enable debug logging")
 @click.option("--log-file", default=None, help="Log file path (if not specified, logging to file is disabled)")
-def trades(pairs: List[str], min_value: float, debug: bool, log_file: Optional[str]):
+def trades(pairs: List[str], min_size: float, min_category: str, debug: bool, log_file: Optional[str]):
     """Monitor live trades"""
     # Configure logging
     log_level = logging.DEBUG if debug else logging.WARNING
@@ -286,7 +290,11 @@ def trades(pairs: List[str], min_value: float, debug: bool, log_file: Optional[s
         handlers=log_handlers
     )
     
-    run_async_command(monitor_market(pairs, "trades", min_value))
+    # If min-category is specified, override min-size
+    if min_category:
+        min_size = MARKET_CATEGORIES[min_category].min_size
+    
+    run_async_command(monitor_market(pairs, "trades", min_size))
 
 @main.command()
 @click.option("--pairs", "-p", multiple=True, default=DEFAULT_PAIRS,
@@ -312,6 +320,49 @@ def liquidations(pairs: List[str], debug: bool, log_file: Optional[str]):
     )
     
     run_async_command(monitor_market(pairs, "liquidations"))
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Crypto trade monitor with size-based categorization"
+    )
+    
+    parser.add_argument(
+        "-p", "--pairs",
+        nargs="+",
+        default=DEFAULT_PAIRS,
+        help="Trading pairs to monitor (e.g., btcusdt ethusdt)"
+    )
+    
+    parser.add_argument(
+        "-m", "--min-size",
+        type=float,
+        default=DEFAULT_MIN_TRADE_SIZE,
+        help="Minimum trade size to monitor (in USDT)"
+    )
+    
+    parser.add_argument(
+        "--min-category",
+        choices=list(MARKET_CATEGORIES.keys()),
+        help="Minimum category to monitor (e.g., whale, shark, fish)"
+    )
+    
+    args = parser.parse_args()
+    
+    # If min-category is specified, override min-size with the category's min_size
+    if args.min_category:
+        args.min_size = MARKET_CATEGORIES[args.min_category].min_size
+    
+    return args
+
+def get_trading_pairs() -> List[str]:
+    """Get the list of trading pairs from command line arguments"""
+    args = parse_args()
+    return [pair.lower() for pair in args.pairs]
+
+def get_min_trade_size() -> float:
+    """Get the minimum trade size from command line arguments"""
+    args = parse_args()
+    return args.min_size
 
 if __name__ == "__main__":
     main() 

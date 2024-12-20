@@ -1,8 +1,10 @@
 import os
 import logging
+import time
 from collections import deque
 from threading import Lock
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
+from colorama import Fore, Back, Style
 
 from ..models import BaseTrade, Column, TABLE_CONFIG, DisplayConfig, ColumnConfig
 from .terminal import (
@@ -23,6 +25,9 @@ class FixedHeightDisplay:
         self.trades = deque(maxlen=self.max_visible_rows)
         self.styles = setup_styles()
         self.logger = logger
+        self.blink_state = {}  # Track blink state for each trade
+        self.last_blink_time = time.time()
+        self.blink_interval = 0.5  # Blink every 0.5 seconds
         self.initialize_display()
 
     @property
@@ -138,22 +143,64 @@ class FixedHeightDisplay:
         
         # Print separator line
         move_cursor(4, 1)
-        stream.write(f"{self.styles['border']}{'─' * (self.terminal_width - 2)}{self.styles['normal']}")
+        stream.write(f"{self.styles['border']}{'���' * (self.terminal_width - 2)}{self.styles['normal']}")
+
+    def _should_blink(self, trade: BaseTrade) -> Tuple[bool, str]:
+        """Determine if a trade should blink and get its style"""
+        trade_data = trade.to_row()
+        is_buy = trade_data[Column.SIDE] == "BUY"
+        category = trade.category
+        
+        # Base colors
+        base_fg = Fore.GREEN if is_buy else Fore.RED
+        base_bg = Back.BLACK
+        
+        # Get trade ID for tracking blink state
+        trade_id = id(trade)
+        current_time = time.time()
+        
+        # Initialize blink state if not exists
+        if trade_id not in self.blink_state:
+            self.blink_state[trade_id] = True
+        
+        # Update blink states every interval
+        if current_time - self.last_blink_time >= self.blink_interval:
+            self.last_blink_time = current_time
+            # Update all blink states
+            for tid in self.blink_state:
+                self.blink_state[tid] = not self.blink_state[tid]
+        
+        # Determine style based on trade size
+        if category.min_size >= 10_000_000:  # Aquaman
+            # Always blink, alternating between inverted and normal
+            if self.blink_state[trade_id]:
+                return True, f"{Back.GREEN if is_buy else Back.RED}{Fore.BLACK}{Style.BRIGHT}"
+            else:
+                return True, f"{base_fg}{base_bg}{Style.BRIGHT}"
+        elif category.min_size >= 1_000_000:  # Whale
+            # Blink between inverted and normal
+            if self.blink_state[trade_id]:
+                return True, f"{Back.GREEN if is_buy else Back.RED}{Fore.BLACK}{Style.BRIGHT}"
+            else:
+                return True, f"{base_fg}{base_bg}{Style.BRIGHT}"
+        elif category.min_size >= 250_000:  # Shark/Orca
+            # Blink between bright and normal
+            if self.blink_state[trade_id]:
+                return True, f"{base_fg}{base_bg}{Style.BRIGHT}"
+            else:
+                return True, f"{base_fg}{base_bg}"
+        else:  # Smaller trades
+            # No blinking
+            return False, f"{base_fg}{base_bg}"
 
     def _print_trade_row(self, row: int, trade: BaseTrade):
         """Print a single trade row"""
         try:
             move_cursor(row, 1)
             trade_data = trade.to_row()
-            category = trade.category
-            style = category.style
             
-            # Build style string
-            style_str = style.text_color
-            if style.background_color:
-                style_str += style.background_color
-            if style.style:
-                style_str += style.style
+            # Get blink state and style
+            should_blink, style_str = self._should_blink(trade)
             
             row_text = ""
             for col in Column:
@@ -203,6 +250,11 @@ class FixedHeightDisplay:
                 
                 hide_cursor()
                 
+                # Clean up old blink states
+                visible_trade_ids = {id(trade) for trade in self.trades}
+                self.blink_state = {tid: state for tid, state in self.blink_state.items() 
+                                  if tid in visible_trade_ids}
+                
                 # Print trades without clearing the whole screen
                 start_row = 5
                 visible_rows = min(len(self.trades), self.max_visible_rows)
@@ -224,7 +276,7 @@ class FixedHeightDisplay:
                 
                 stream.flush()
         except Exception as e:
-            self.logger.error(f"Error updating display: {e}", exc_info=True)
+            self.logger.error(f"Error updating display: {e}")
         finally:
             show_cursor()
 

@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 from colorama import Fore, Back, Style
 
+# Add this near the top with other constants
+DEFAULT_MIN_TRADE_SIZE = 0  # Default to showing all trades (plankton level)
+
 @dataclass
 class SoundConfig:
     frequency: int  # Hz
@@ -34,49 +37,49 @@ MARKET_CATEGORIES = {
     "whale": MarketSizeCategory(
         "Whale", 1_000_000,
         "🐋",
-        StyleConfig(Fore.BLUE, None, Style.BRIGHT),
+        StyleConfig(Fore.BLUE, Back.BLACK, Style.BRIGHT),
         SoundConfig(1200, 250, 0.9),
         SoundConfig(1800, 400, 1.0),
     ),
     "orca": MarketSizeCategory(
         "Orca", 500_000,
         "🦈",
-        StyleConfig(Fore.CYAN, None, Style.BRIGHT),
+        StyleConfig(Fore.CYAN, Back.BLACK, Style.BRIGHT),
         SoundConfig(1000, 200, 0.8),
         SoundConfig(1500, 300, 0.9),
     ),
     "shark": MarketSizeCategory(
         "Shark", 250_000,
         "🐬",
-        StyleConfig(Fore.GREEN, None, Style.BRIGHT),
+        StyleConfig(Fore.GREEN, Back.BLACK, Style.BRIGHT),
         SoundConfig(800, 150, 0.7),
         SoundConfig(1200, 250, 0.8),
     ),
     "dolphin": MarketSizeCategory(
         "Dolphin", 100_000,
         "🐠",
-        StyleConfig(Fore.YELLOW, None, Style.BRIGHT),
+        StyleConfig(Fore.YELLOW, Back.BLACK, Style.BRIGHT),
         SoundConfig(600, 100, 0.6),
         SoundConfig(900, 200, 0.7),
     ),
     "fish": MarketSizeCategory(
         "Fish", 50_000,
         "🐟",
-        StyleConfig(Fore.WHITE, None, Style.BRIGHT),
+        StyleConfig(Fore.WHITE, Back.BLACK, Style.BRIGHT),
         None,  # No sound for regular trades
         SoundConfig(600, 150, 0.6),  # But still alert on liquidations
     ),
     "shrimp": MarketSizeCategory(
         "Shrimp", 10_000,
         "🦐",
-        StyleConfig(Fore.WHITE, None, None),
+        StyleConfig(Fore.WHITE, Back.BLACK, None),
         None,
         None,
     ),
     "plankton": MarketSizeCategory(
         "Plankton", 0,
         "🦠",
-        StyleConfig(Fore.WHITE, None, Style.DIM),
+        StyleConfig(Fore.WHITE, Back.BLACK, None),
         None,
         None,
     ),
@@ -99,7 +102,3 @@ WS_STREAM = "stream.binance.com:9443"
 # Stream types
 TRADE_STREAM = "@trade"
 LIQUIDATION_STREAM = "@forceOrder"  # For futures liquidations
-
-# Minimum trade values for filtering
-MIN_TRADE_VALUE = 5  # $1,000
-DEFAULT_MIN_VALUE = 0  # Show all trades by default
