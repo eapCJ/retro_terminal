@@ -1,6 +1,31 @@
-# Crypto Market Monitoring Tool
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                        CRYPTO MARKET MONITORING TOOL                         ║
+║                                                                             ║
+║     ★★  Track the Whales. Follow the Money. Master the Market.  ★★         ║
+║                                                                             ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
-## Core Purpose
++                              ⚠️ DISCLAIMER ⚠️
++ This tool is provided as-is for personal use and educational purposes only.
++ No financial advice is given. Use at your own risk. The creator accepts no
++ responsibility for any trading decisions or losses incurred while using this tool.
++
+                        ╔═══════════════════════════╗                          
+                        ║    REAL-TIME TRACKING     ║                          
+                        ╚═══════════════════════════╝                          
+
+           ★★ AQUAMAN ($10M+)  |  ◈◈ WHALE ($1M+)  |  ◆◆ ORCA ($500K+)
+           ▲▲ SHARK ($250K+)   |  ■■ DOLPHIN ($100K+)  |  ►► FISH ($50K+)
+
+A professional-grade market monitoring tool that brings institutional-level trade 
+flow analysis to your terminal. Track significant market movements and liquidations 
+in real-time with visual and audio feedback. This is an experimental project and
+may contain bugs or inaccuracies. Not intended for production use.
+
+"Where whales make waves, we make signals."
+
+Core Purpose
 A real-time cryptocurrency market monitoring tool that tracks:
 - Live trades
 - Liquidations (forced closures of leveraged positions)
@@ -50,6 +75,12 @@ The tool can be run in two modes:
 1. Interactive mode
 2. Command-line mode with specific parameters (e.g., minimum size: $100,000)
 
++⚠️ Important Notes:
++- This tool is not guaranteed to capture all trades or liquidations
++- Data may be delayed or incomplete
++- No warranty is provided for accuracy or reliability
++- Not suitable for automated trading systems
+
 ## Technical Implementation
 - Asynchronous WebSocket handling with websockets library
 - Thread-safe display management
@@ -59,4 +90,12 @@ The tool can be run in two modes:
 - Sound generation with custom frequency/duration
 - European number formatting for global usage
 
-This project creates a professional-grade market monitoring tool that helps traders and analysts track significant market movements and liquidations in real-time with visual and audio feedback.# retro_terminal
+## Known Limitations
+- May miss some trades during high volatility
+- Audio alerts may not work on all systems
+- Terminal display may break in some environments
+- WebSocket connection can be unstable
+- Not all edge cases are handled
+
+This is an experimental project created for personal use and learning purposes.
+Use at your own risk. Not financial advice.
