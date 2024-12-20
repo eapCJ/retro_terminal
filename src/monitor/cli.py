@@ -14,7 +14,7 @@ from .config import (
     LIQUIDATION_STREAM, WS_STREAM
 )
 from .models import Trade, Liquidation
-from .printer import display  # Import the global display instance
+from .display import display
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
